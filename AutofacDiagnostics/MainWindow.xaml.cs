@@ -2,8 +2,10 @@
 using Autofac.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Windows;
+using Autofac.Core;
 
 namespace AutofacDiagnostics
 {
@@ -16,7 +18,8 @@ namespace AutofacDiagnostics
             var builder = new ContainerBuilder();
 
             // Load the ExampleAutofac assembly
-            var exampleAutofacAssembly = Assembly.LoadFrom(@"E:\Code\WPF\ExampleAutofac\ExampleAutofac\bin\Debug\ExampleAutofac.exe");
+            const string dll = @"E:\Code\WPF\ExampleAutofac\ExampleAutofac\bin\Debug\ExampleAutofac.exe";
+            var exampleAutofacAssembly = Assembly.LoadFrom(dll);
 
             // Register dependencies from ExampleAutofac
             builder.RegisterAssemblyTypes(exampleAutofacAssembly)
@@ -24,28 +27,51 @@ namespace AutofacDiagnostics
 
             _container = builder.Build();
 
-            var serviceProvider = new AutofacServiceProvider(_container);
-
             // Output registration data to console
-            foreach (var registration in _container.ComponentRegistry.Registrations)
+            var diagnostics = _container.ComponentRegistry.Registrations
+                .Select(registration => new Registrations(
+                    registration.Activator.LimitType.Name,
+                    registration.Target.Services.First().Description.Split('.').Last(),
+                    MapLifetime(registration.Sharing),
+                    registration.Sharing.ToString(),
+                    registration.Ownership.ToString(),
+                    registration.Services.Select(s => s.Description.Split('.').Last()).ToList())
+                );
+
+            foreach (var diagnostic in diagnostics)
             {
-                Console.WriteLine($@"Service: {registration.Activator.LimitType}, Lifetime: {registration.Lifetime}");
+                DisplayRegistrationDetails(diagnostic);
             }
-
-            // Resolve IServiceC and call its method using reflection
-            var serviceCType = exampleAutofacAssembly.GetType("ExampleAutofac.ServiceC");
-            var serviceC = serviceProvider.GetService(serviceCType);
-            var doCMethod = serviceCType.GetMethod("DoC");
-            doCMethod.Invoke(serviceC, null);
-
-            // Output to console
-            Console.WriteLine(@"ServiceC.DoC() has been called.");
         }
+
+        private static void DisplayRegistrationDetails(Registrations diagnostic)
+        {
+            Console.WriteLine($@"Name: {diagnostic.Name}");
+            Console.WriteLine($@"Type: {diagnostic.Type}");
+            Console.WriteLine($@"Lifetime: {diagnostic.Lifetime}");
+            Console.WriteLine($@"Scope: {diagnostic.Scope}");
+            Console.WriteLine($@"Parent Scope: {diagnostic.ParentScope}");
+            Console.WriteLine(@"Dependencies:");
+            foreach (var dependency in diagnostic.Implementations)
+            {
+                Console.WriteLine($@"- {dependency}");
+            }
+            Console.WriteLine(@"--------------------------------------------------");
+        }
+
+        private static Lifetime MapLifetime(InstanceSharing sharing)
+            => sharing == InstanceSharing.Shared ? Lifetime.SingleInstance : Lifetime.InstancePerDependency;
 
         protected override void OnExit(ExitEventArgs e)
         {
             _container.Dispose();
             base.OnExit(e);
         }
+    }
+
+    public enum Lifetime
+    {
+        SingleInstance,
+        InstancePerDependency
     }
 }

@@ -18,6 +18,8 @@ namespace ExampleAutofac
             builder.RegisterType<ServiceA>().As<IServiceA>().SingleInstance();
             builder.RegisterType<ServiceB>().As<IServiceB>();
             builder.RegisterType<ServiceC>().As<IServiceC>();
+            builder.RegisterType<ServiceD>().As<IServiceD>();
+            builder.RegisterType<ServiceE>().As<IServiceE>();
 
             _container = builder.Build();
 
@@ -37,12 +39,12 @@ namespace ExampleAutofac
             base.OnExit(e);
         }
     }
-
+    
     public interface IServiceA
     {
         void DoA();
     }
-
+    
     public class ServiceA : IServiceA
     {
         public void DoA()
@@ -51,19 +53,22 @@ namespace ExampleAutofac
             Console.WriteLine("ServiceA.DoA() has been called.");
         }
     }
-
+    
     public interface IServiceB
     {
         void DoB();
     }
 
-    public class ServiceB : IServiceB
+    // ServiceB depends on ServiceA, ServiceD, and ServiceE
+    public class ServiceB : IServiceB, IServiceA, IServiceD, IServiceE
     {
         private readonly IServiceA _serviceA;
+        private readonly IServiceD _serviceD;
 
-        public ServiceB(IServiceA serviceA)
+        public ServiceB(IServiceA serviceA, IServiceD serviceD)
         {
             _serviceA = serviceA;
+            _serviceD = serviceD;
         }
 
         public void DoB()
@@ -72,6 +77,23 @@ namespace ExampleAutofac
             // Implementation of DoB
             Console.WriteLine("ServiceB.DoB() has been called.");
         }
+
+        public void DoA()
+        {
+            Console.WriteLine("ServiceB.DoA() has been called.");
+        }
+
+        public void DoD()
+        {
+            _serviceD.DoD();
+            // Implementation of DoD
+            Console.WriteLine("ServiceB.DoD() has been called.");
+        }
+
+        public void DoE()
+        {
+            Console.WriteLine("ServiceB.DoE() has been called.");
+        }
     }
 
     public interface IServiceC
@@ -79,6 +101,7 @@ namespace ExampleAutofac
         void DoC();
     }
 
+    // ServiceC depends on ServiceB
     public class ServiceC : IServiceC
     {
         private readonly IServiceB _serviceB;
@@ -93,6 +116,34 @@ namespace ExampleAutofac
             _serviceB.DoB();
             // Implementation of DoC
             Console.WriteLine("ServiceC.DoC() has been called.");
+        }
+    }
+    
+    public interface IServiceD
+    {
+        void DoD();
+    }
+
+    public class ServiceD : IServiceD
+    {
+        public void DoD()
+        {
+            // Implementation of DoD
+            Console.WriteLine("ServiceD.DoD() has been called.");
+        }
+    }
+
+    public interface IServiceE
+    {
+        void DoE();
+    }
+
+    public class ServiceE : IServiceE
+    {
+        public void DoE()
+        {
+            // Implementation of DoE
+            Console.WriteLine("ServiceE.DoE() has been called.");
         }
     }
 }
